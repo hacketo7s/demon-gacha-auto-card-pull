@@ -4,12 +4,16 @@ import uuid
 from threading import Timer
 
 FAIL = 400
-SUPRESS_FEEDBACK = True
+SUPRESS_FEEDBACK = False
 
 me_endpoint = "https://demongacha.com/api/me"
 open_pack_endpoint = "https://demongacha.com/api/packs/open"
 
 cookie = "sid="
+
+if not cookie.startswith("sid="):
+    temp = "sid=" + cookie
+    cookie = temp
 
 get_headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.0.0 Safari/537.36",
@@ -29,10 +33,10 @@ post_headers = {
     }
 
 def printOpenPackReturn(response, wait_time):
-    print(f"wait time: {wait_time}")
-    print("\n")
+    if not SUPRESS_FEEDBACK:    
+        print(f"wait time: {wait_time}")
+        print("\n")
 
-    if not SUPRESS_FEEDBACK:
         cards = response.get("cards")
         print(f"OPENED {response.get("opened")} card(s)")
         print("\n")
@@ -68,8 +72,9 @@ def openPack(session, all=False):
     if me == FAIL:
         return FAIL, 0
 
+    wait_time = ((me.get("packState").get("nextPackAt") - me.get("packState").get("serverNow")) / 1000) + 1
+
     if (totalPacks(me.get("packState"))) < 1:
-        wait_time = (me.get("packState").get("nextPackAt") - me.get("packState").get("serverNow") / 1000) + 1
         return False, wait_time
     
     n = None
@@ -87,7 +92,7 @@ def openPack(session, all=False):
     try:
         request = session.post(url=open_pack_endpoint, headers=post_headers, json=payload)
         if request.status_code == 200:
-            return request.json(), 601
+            return request.json(), wait_time
         else:
             print("open pack failed for some reason")
             return FAIL, 0
@@ -102,9 +107,8 @@ def main_loop():
             return
         elif response != False and response != FAIL:
             printOpenPackReturn(response, wait_time)
-            Timer(wait_time, main_loop).start()
+        
+        Timer(wait_time, main_loop).start()
     
 main_loop()
         
-
-    
